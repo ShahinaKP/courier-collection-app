@@ -79,7 +79,43 @@ export const webhookCreatePackage = async (
         .json({ message: "Package already exists", package: existing });
       return;
     }
+    let sourceRegionId: number | null = null;
 
+    if (sender_pincode) {
+      const sourcePincode = await prisma.pincode.findUnique({
+        where: {
+          pincode: sender_pincode,
+        },
+      });
+
+      if (!sourcePincode) {
+        res.status(400).json({
+          error: `Unknown sender pincode ${sender_pincode}`,
+        });
+        return;
+      }
+
+      sourceRegionId = sourcePincode.region_id;
+    }
+
+    let destinationRegionId: number | null = null;
+
+    if (receiver_pincode) {
+      const pincode = await prisma.pincode.findUnique({
+        where: {
+          pincode: receiver_pincode,
+        },
+      });
+
+      if (!pincode) {
+        res.status(400).json({
+          error: `Unknown destination pincode ${receiver_pincode}`,
+        });
+        return;
+      }
+
+      destinationRegionId = pincode.region_id;
+    }
     const pkg = await prisma.package.create({
       data: {
         tracking_id,
@@ -89,9 +125,8 @@ export const webhookCreatePackage = async (
         receiver_name,
         receiver_address,
         receiver_pincode: receiver_pincode ?? null,
-        destination_region_id: destination_region_id
-          ? parseInt(destination_region_id)
-          : null,
+        current_region_id: sourceRegionId,
+        destination_region_id: destinationRegionId,
         status: "to_be_picked_up",
         weight,
       },

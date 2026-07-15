@@ -4,6 +4,14 @@ export interface Region {
   region_name: string;
 }
 
+export interface Route {
+  id: number;
+  route_code: string;
+  direction: "north" | "south" | "east" | "west" | "central";
+  source_region: Region;
+  destination_region: Region;
+  status: "active" | "inactive";
+}
 export interface Package {
   id: number;
   tracking_id: string;
@@ -28,10 +36,11 @@ export interface Package {
 export interface Bag {
   id: number;
   bag_code: string;
-  region_id: number | null;
+  route: Route;
   direction: string;
   status: string;
   package_count: number;
+  packages: Package[];
   created_at: string;
 }
 
@@ -44,8 +53,8 @@ export interface Truck {
 
 export interface TruckSchedule {
   id: number;
-  truck_id: number | null;
-  region_id: number | null;
+  truck: Truck;
+  route: Route;
   scheduled_departure: string;
   actual_departure: string | null;
   status: string;

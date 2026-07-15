@@ -51,6 +51,7 @@ const PackageTable = ({ packages }: { packages: Package[] }) =>
               "Tracking ID",
               "Sender",
               "Receiver",
+              "Route",
               "Weight",
               "Status",
               "Delay",
@@ -69,6 +70,13 @@ const PackageTable = ({ packages }: { packages: Package[] }) =>
               </td>
               <td className="px-4 py-3 font-medium">{p.sender_name}</td>
               <td className="px-4 py-3">{p.receiver_name}</td>
+              <td className="px-4 py-3">
+                <span className="font-medium">
+                  {p.current_region?.region_code ?? "—"}
+                  {" → "}
+                  {p.destination_region?.region_code ?? "—"}
+                </span>
+              </td>
               <td className="px-4 py-3">{p.weight} kg</td>
               <td className="px-4 py-3">
                 <span
@@ -96,22 +104,25 @@ const Section = ({
   packages: Package[];
   icon: React.ReactNode;
 }) => (
-  <Card className="mb-6">
-    <CardHeader>
-      <CardTitle className="flex items-center justify-between text-base">
-        <span className="flex items-center gap-2">
-          {icon}
-          {title}
-        </span>
-        <span className="text-sm font-normal text-muted-foreground">
-          {packages.length} packages
-        </span>
-      </CardTitle>
-    </CardHeader>
-    <CardContent>
-      <PackageTable packages={packages} />
-    </CardContent>
-  </Card>
+  console.log("packages", packages),
+  (
+    <Card className="mb-6">
+      <CardHeader>
+        <CardTitle className="flex items-center justify-between text-base">
+          <span className="flex items-center gap-2">
+            {icon}
+            {title}
+          </span>
+          <span className="text-sm font-normal text-muted-foreground">
+            {packages.length} packages
+          </span>
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        <PackageTable packages={packages} />
+      </CardContent>
+    </Card>
+  )
 );
 
 const getWindowLabel = () => {

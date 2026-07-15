@@ -2,12 +2,12 @@ import { useEffect, useState } from "react";
 import {
   fetchBags,
   fetchPackages,
-  fetchRegions,
+  fetchRoutes,
   createBag,
   addPackageToBag,
   updateBagStatus,
 } from "../api/api";
-import type { Bag, Package, Region } from "../types";
+import type { Bag, Package, Route } from "../types";
 import {
   Card,
   CardContent,
@@ -34,32 +34,6 @@ import {
   Info,
 } from "lucide-react";
 import { ConfirmDialog, DelayModal } from "@/components/Dialog";
-
-// ── Direction utilities ───────────────────────────────────────────────────────
-
-const DIRECTION_MAP: Record<string, Record<string, string>> = {
-  "RG-N": { "RG-S": "south", "RG-E": "east", "RG-W": "west", "RG-C": "south" },
-  "RG-S": { "RG-N": "north", "RG-E": "east", "RG-W": "west", "RG-C": "north" },
-  "RG-E": { "RG-N": "north", "RG-S": "south", "RG-W": "west", "RG-C": "west" },
-  "RG-W": { "RG-N": "north", "RG-S": "south", "RG-E": "east", "RG-C": "east" },
-  "RG-C": { "RG-N": "north", "RG-S": "south", "RG-E": "east", "RG-W": "west" },
-};
-
-const getSuggestedDirection = (from: string, to: string) => {
-  if (!from || !to) return "";
-  if (from === to) return "central";
-  return DIRECTION_MAP[from]?.[to] ?? "central";
-};
-
-// ── Constants ─────────────────────────────────────────────────────────────────
-
-const DIRECTIONS = [
-  { value: "north", label: "North" },
-  { value: "south", label: "South" },
-  { value: "east", label: "East" },
-  { value: "west", label: "West" },
-  { value: "central", label: "Central / Local" },
-];
 
 const STATUS_COLOR: Record<string, string> = {
   open: "bg-green-100 text-green-800",
@@ -90,12 +64,11 @@ const Step = ({ n, label }: { n: number; label: string }) => (
 const BagManagement = () => {
   const [bags, setBags] = useState<Bag[]>([]);
   const [available, setAvailable] = useState<Package[]>([]);
-  const [regions, setRegions] = useState<Region[]>([]);
+  const [routes, setRoutes] = useState<Route[]>([]);
   const [expanded, setExpanded] = useState<number | null>(null);
 
   // Create bag form
-  const [direction, setDirection] = useState("");
-  const [regionId, setRegionId] = useState("");
+  const [routeId, setRouteId] = useState("");
 
   // Add to bag form
   const [selBag, setSelBag] = useState("");
@@ -124,13 +97,13 @@ const BagManagement = () => {
   // ── Loaders ───────────────────────────────────────────────────────────────
 
   const load = async () => {
-    const [bagsData, pkgsData, regionsData] = await Promise.all([
+    const [bagsData, pkgsData, routesData] = await Promise.all([
       fetchBags(),
       fetchPackages(),
-      fetchRegions(),
+      fetchRoutes(),
     ]);
+    setRoutes(routesData);
     setBags(bagsData);
-    setRegions(regionsData);
     const all: Package[] = pkgsData.packages ?? [];
     setAvailable(
       all.filter((p) => ["to_be_picked_up", "picked_up"].includes(p.status)),
@@ -147,15 +120,20 @@ const BagManagement = () => {
   const selectedBag = selBag
     ? bags.find((b) => b.id === parseInt(selBag))
     : null;
-  const selectedBagRegionCode = (selectedBag as any)?.region?.region_code ?? "";
-
+  const availableForSelectedBag = selectedBag
+    ? available.filter(
+        (p) =>
+          p.destination_region_id === selectedBag.route.destination_region.id,
+      )
+    : [];
   // ── Handlers ─────────────────────────────────────────────────────────────
 
   const handleCreateBag = async () => {
-    if (!direction || !regionId) return;
-    await createBag({ region_id: parseInt(regionId), direction });
-    setDirection("");
-    setRegionId("");
+    if (!routeId) return;
+    await createBag({
+      route_id: Number(routeId),
+    });
+    setRouteId("");
     load();
   };
 
@@ -266,44 +244,22 @@ const BagManagement = () => {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="space-y-1.5">
-              <Label>
-                Outgoing Direction
-                <span className="ml-1 text-xs text-muted-foreground">
-                  (where this bag is headed)
-                </span>
-              </Label>
-              <Select value={direction} onValueChange={setDirection}>
+            <div className="space-y-2">
+              <Label>Route</Label>
+
+              <Select value={routeId} onValueChange={setRouteId}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Pick a direction…" />
+                  <SelectValue placeholder="Select Route" />
                 </SelectTrigger>
+
                 <SelectContent>
-                  {DIRECTIONS.map((d) => (
-                    <SelectItem key={d.value} value={d.value}>
-                      {d.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1.5">
-              <Label>
-                Hub Region
-                <span className="ml-1 text-xs text-muted-foreground">
-                  (this hub)
-                </span>
-              </Label>
-              <Select value={regionId} onValueChange={setRegionId}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select your hub…" />
-                </SelectTrigger>
-                <SelectContent>
-                  {regions.map((r) => (
-                    <SelectItem key={r.id} value={String(r.id)}>
-                      <span className="font-mono">{r.region_code}</span>
-                      <span className="ml-2 text-muted-foreground">
-                        {r.region_name}
-                      </span>
+                  {routes.map((route) => (
+                    <SelectItem key={route.id} value={String(route.id)}>
+                      {route.route_code} • {route.source_region.region_code}
+                      {" → "}
+                      {route.destination_region.region_code}
+                      {" • "}
+                      {route.direction}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -312,7 +268,7 @@ const BagManagement = () => {
             <Button
               className="w-full"
               onClick={handleCreateBag}
-              disabled={!direction || !regionId}
+              disabled={!routeId}
             >
               Create Bag
             </Button>
@@ -339,6 +295,7 @@ const BagManagement = () => {
                   value={selBag}
                   onValueChange={(v) => {
                     setSelBag(v);
+                    setSelPkg("");
                     setAddMsg(null);
                   }}
                 >
@@ -350,8 +307,8 @@ const BagManagement = () => {
                       <SelectItem key={b.id} value={String(b.id)}>
                         <span className="font-mono text-xs">{b.bag_code}</span>
                         <span className="ml-2 text-xs capitalize text-muted-foreground">
-                          {b.direction} · {(b as any).region?.region_code} ·{" "}
-                          {b.package_count} pkg(s)
+                          {b.route.direction} · {(b as any).region?.region_code}{" "}
+                          · {b.package_count} pkg(s)
                         </span>
                       </SelectItem>
                     ))}
@@ -362,10 +319,13 @@ const BagManagement = () => {
 
             <div className="space-y-1.5">
               <Label>Select Package</Label>
-              {available.length === 0 ? (
-                <div className="flex items-start gap-2 rounded-md border border-dashed px-3 py-2 text-sm text-muted-foreground">
-                  <Info className="mt-0.5 h-4 w-4 shrink-0" />
-                  No packages awaiting bag assignment.
+              {!selectedBag ? (
+                <div className="rounded-md border border-dashed px-3 py-2 text-sm text-muted-foreground">
+                  Select a bag first.
+                </div>
+              ) : availableForSelectedBag.length === 0 ? (
+                <div className="rounded-md border border-dashed px-3 py-2 text-sm text-muted-foreground">
+                  No eligible packages for this route.
                 </div>
               ) : (
                 <Select
@@ -379,11 +339,7 @@ const BagManagement = () => {
                     <SelectValue placeholder="— pick a package —" />
                   </SelectTrigger>
                   <SelectContent>
-                    {available.map((p) => {
-                      const suggestedDir = getSuggestedDirection(
-                        selectedBagRegionCode,
-                        (p as any).destination_region?.region_code ?? "",
-                      );
+                    {availableForSelectedBag.map((p) => {
                       return (
                         <SelectItem key={p.id} value={String(p.id)}>
                           <div className="flex flex-col gap-0.5">
@@ -397,13 +353,6 @@ const BagManagement = () => {
                               {(p as any).destination_region && (
                                 <span className="ml-1 font-medium text-foreground">
                                   → {(p as any).destination_region.region_code}
-                                </span>
-                              )}
-                              {suggestedDir && selectedBagRegionCode && (
-                                <span
-                                  className={`ml-1.5 rounded px-1 py-0.5 text-[10px] font-semibold capitalize ${DIRECTION_COLOR[suggestedDir]}`}
-                                >
-                                  {suggestedDir}
                                 </span>
                               )}
                             </span>
@@ -477,14 +426,16 @@ const BagManagement = () => {
                     </span>
 
                     <span
-                      className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium capitalize ${DIRECTION_COLOR[b.direction] ?? "bg-slate-100 text-slate-700"}`}
+                      className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium capitalize ${DIRECTION_COLOR[b.route.direction] ?? "bg-slate-100 text-slate-700"}`}
                     >
                       <Navigation className="h-3 w-3" />
-                      {b.direction}
+                      {b.route.direction}
                     </span>
 
                     <Badge variant="secondary">
-                      {(b as any).region?.region_code ?? "—"}
+                      {b.route.source_region.region_code}
+                      {" → "}
+                      {b.route.destination_region.region_code}
                     </Badge>
 
                     <span

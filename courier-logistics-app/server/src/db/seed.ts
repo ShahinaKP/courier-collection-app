@@ -1,4 +1,4 @@
-import { PrismaClient } from "../../generated/prisma";
+import { PrismaClient, Direction, RouteStatus } from "../../generated/prisma";
 
 const prisma = new PrismaClient();
 
@@ -53,6 +53,57 @@ const PINCODES = [
   { pincode: "482001", city: "Jabalpur", region_code: "RG-C" },
 ];
 
+const ROUTES = [
+  {
+    route_code: "RTE-001",
+    source_region_code: "RG-N",
+    destination_region_code: "RG-C",
+    direction: Direction.south,
+  },
+  {
+    route_code: "RTE-002",
+    source_region_code: "RG-C",
+    destination_region_code: "RG-S",
+    direction: Direction.south,
+  },
+  {
+    route_code: "RTE-003",
+    source_region_code: "RG-S",
+    destination_region_code: "RG-C",
+    direction: Direction.north,
+  },
+  {
+    route_code: "RTE-004",
+    source_region_code: "RG-C",
+    destination_region_code: "RG-N",
+    direction: Direction.north,
+  },
+  {
+    route_code: "RTE-005",
+    source_region_code: "RG-W",
+    destination_region_code: "RG-C",
+    direction: Direction.east,
+  },
+  {
+    route_code: "RTE-006",
+    source_region_code: "RG-C",
+    destination_region_code: "RG-W",
+    direction: Direction.west,
+  },
+  {
+    route_code: "RTE-007",
+    source_region_code: "RG-E",
+    destination_region_code: "RG-C",
+    direction: Direction.west,
+  },
+  {
+    route_code: "RTE-008",
+    source_region_code: "RG-C",
+    destination_region_code: "RG-E",
+    direction: Direction.east,
+  },
+];
+
 async function main() {
   console.log("Seeding logistics database...");
 
@@ -76,6 +127,31 @@ async function main() {
     });
   }
 
+  for (const route of ROUTES) {
+    const source = await prisma.region.findUnique({
+      where: { region_code: route.source_region_code },
+    });
+
+    const destination = await prisma.region.findUnique({
+      where: { region_code: route.destination_region_code },
+    });
+
+    if (!source || !destination) continue;
+
+    await prisma.route.upsert({
+      where: {
+        route_code: route.route_code,
+      },
+      update: {},
+      create: {
+        route_code: route.route_code,
+        source_region_id: source.id,
+        destination_region_id: destination.id,
+        direction: route.direction,
+        status: RouteStatus.active,
+      },
+    });
+  }
   const trucks = [
     { truck_code: "TRK-001", capacity: 20 },
     { truck_code: "TRK-002", capacity: 15 },
@@ -91,7 +167,8 @@ async function main() {
 
   console.log("Seed completed.");
   console.log(
-    `  Regions: ${REGIONS.length}, Pincodes: ${PINCODES.length}, Trucks: ${trucks.length}`,
+    `  Regions: ${REGIONS.length}, Pincodes: ${PINCODES.length},
+    Routes: ${ROUTES.length}, Trucks: ${trucks.length}`,
   );
 }
 

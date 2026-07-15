@@ -9,7 +9,12 @@ export const getAllBags = async (
   try {
     const bags = await prisma.bag.findMany({
       include: {
-        region: true,
+        route: {
+          include: {
+            source_region: true,
+            destination_region: true,
+          },
+        },
         package_bags: {
           include: {
             package: {
@@ -42,25 +47,48 @@ export const getAllBags = async (
 
 export const createBag = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { region_id, direction } = req.body;
+    const { route_id } = req.body;
 
-    if (!region_id || !direction) {
-      res.status(400).json({ error: "region_id and direction are required" });
+    if (!route_id) {
+      res.status(400).json({
+        error: "route_id is required",
+      });
+      return;
+    }
+    const route = await prisma.route.findUnique({
+      where: {
+        id: Number(route_id),
+      },
+    });
+
+    if (!route) {
+      res.status(404).json({
+        error: "Route not found",
+      });
       return;
     }
 
     const bag = await prisma.bag.create({
       data: {
         bag_code: `BAG-${Date.now()}`,
-        region_id: parseInt(region_id as string),
-        direction,
+        route_id: Number(route_id),
+      },
+      include: {
+        route: {
+          include: {
+            source_region: true,
+            destination_region: true,
+          },
+        },
       },
     });
 
     res.status(201).json(bag);
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: "Internal server error" });
+    res.status(500).json({
+      error: "Internal server error",
+    });
   }
 };
 
@@ -75,7 +103,14 @@ export const addPackageToBag = async (
     // Validate bag exists and is open
     const bag = await prisma.bag.findUnique({
       where: { id: bagId },
-      include: { region: true },
+      include: {
+        route: {
+          include: {
+            source_region: true,
+            destination_region: true,
+          },
+        },
+      },
     });
     if (!bag) {
       res.status(404).json({ error: "Bag not found" });
@@ -116,18 +151,16 @@ export const addPackageToBag = async (
     // ── Direction validation ──────────────────────────────────────────────────
     // Only validate if we know both the bag's hub region AND the package's
     // destination region. If either is missing we allow it (edge case / legacy).
-    if (bag.region && pkg.destination_region) {
+
+    if (bag.route && pkg.destination_region) {
       const expectedDirection = getDirection(
-        bag.region.region_code,
+        bag.route.source_region.region_code,
         pkg.destination_region.region_code,
       );
 
-      if (bag.direction !== expectedDirection) {
+      if (bag.route.destination_region_id !== pkg.destination_region.id) {
         res.status(400).json({
-          error:
-            `Wrong bag direction. Package is going to ${pkg.destination_region.region_name} ` +
-            `(${pkg.destination_region.region_code}), so it should go "${expectedDirection}" ` +
-            `from ${bag.region.region_code}, but this bag goes "${bag.direction}".`,
+          error: "Package does not belong to this route.",
         });
         return;
       }

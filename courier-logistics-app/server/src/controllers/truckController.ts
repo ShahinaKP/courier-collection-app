@@ -52,7 +52,12 @@ export const getAllSchedules = async (
     const schedules = await prisma.truckSchedule.findMany({
       include: {
         truck: true,
-        region: true,
+        route: {
+          include: {
+            source_region: true,
+            destination_region: true,
+          },
+        },
         truck_bags: {
           include: {
             bag: {
@@ -85,15 +90,24 @@ export const createSchedule = async (
   res: Response,
 ): Promise<void> => {
   try {
-    const { truck_id, region_id, scheduled_departure } = req.body;
+    const { truck_id, route_id, scheduled_departure } = req.body;
+
+    if (!truck_id || !route_id || !scheduled_departure) {
+      res.status(400).json({
+        error: "truck_id, route_id and scheduled_departure are required",
+      });
+      return;
+    }
 
     const schedule = await prisma.truckSchedule.create({
       data: {
-        truck_id: parseInt(truck_id),
-        region_id: parseInt(region_id),
+        truck_id: Number(truck_id),
+        route_id: Number(route_id),
         scheduled_departure: new Date(scheduled_departure),
       },
     });
+
+    res.status(201).json(schedule);
 
     res.status(201).json(schedule);
   } catch (err) {
@@ -189,10 +203,10 @@ export const loadBagOntoTruck = async (
       res.status(400).json({ error: "bag_id is required" });
       return;
     }
-
+    const bagId = Number(bag_id);
     // Check bag is sealed
     const bag = await prisma.bag.findUnique({
-      where: { id: parseInt(bag_id) },
+      where: { id: bagId },
     });
     if (!bag) {
       res.status(404).json({ error: "Bag not found" });
@@ -207,7 +221,7 @@ export const loadBagOntoTruck = async (
 
     // Check not already loaded
     const existing = await prisma.truckBag.findFirst({
-      where: { bag_id: parseInt(bag_id) },
+      where: { bag_id: bagId },
     });
     if (existing) {
       res.status(409).json({ error: "Bag is already loaded on a truck" });
@@ -217,13 +231,13 @@ export const loadBagOntoTruck = async (
     const truckBag = await prisma.truckBag.create({
       data: {
         truck_schedule_id: scheduleId,
-        bag_id: parseInt(bag_id),
+        bag_id: bagId,
       },
     });
 
     // Update bag status to loaded
     await prisma.bag.update({
-      where: { id: parseInt(bag_id) },
+      where: { id: bagId },
       data: { status: "loaded", updated_at: new Date() },
     });
 

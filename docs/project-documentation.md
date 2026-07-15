@@ -14,6 +14,14 @@
 10. [Package Status Flow](#10-package-status-flow)
 11. [Bag Lifecycle](#11-bag-lifecycle)
 12. [Truck Schedule Lifecycle](#12-truck-schedule-lifecycle)
+13. [Stage 4 — Enterprise Integration](#13-stage-4--enterprise-integration)
+14. [Security Architecture](#14-security-architecture)
+15. [Idempotency](#15-idempotency)
+16. [ETL Architecture](#16-etl-architecture)
+17. [Reliability & Retry Strategy](#17-reliability--retry-strategy)
+18. [Message Queue](#18-message-queue)
+19. [Support System](#19-support-system)
+20. [Future Cloud Architecture](#19-future-cloud-architecture)
 
 ---
 
@@ -510,5 +518,192 @@ At any point a package can have `delay_reason` set — this comes from either a 
 **Delaying a truck:**
 
 - `delay_reason` prefixed with `"Truck delayed: "` propagated to all packages on board
+
+---
+
+## 13. Stage 4 — Enterprise Integration
+
+Stage 4 introduces enterprise-grade communication between the Collection and Logistics applications.
+
+New capabilities include:
+
+- Customer onboarding with API credentials
+- HMAC request signing
+- Customer-specific ETL jobs
+- Idempotent request processing
+- Message queue for asynchronous processing
+- Retry mechanism with exponential/logarithmic backoff
+- Customer health monitoring
+- Support system with read-only access
+
+---
+
+## 14. Security Architecture
+
+Every request between the Collection and Logistics applications is authenticated.
+
+Authentication consists of:
+
+1. API Key
+2. API Secret
+3. Timestamp
+4. HMAC Signature
+
+Flow
+
+Collection App
+│
+│ API Key
+│ Timestamp
+│ Signature
+▼
+Logistics App
+
+↓
+
+Verify API Key
+
+↓
+
+Verify Timestamp
+
+↓
+
+Recalculate Signature
+
+↓
+
+Accept Request
+
+---
+
+## 15. Idempotency
+
+Webhook requests are idempotent.
+
+If the same tracking ID is received more than once, duplicate package creation is prevented.
+
+Flow
+
+Receive Request
+
+↓
+
+Tracking ID Exists?
+
+↓
+
+Yes
+
+↓
+
+Ignore
+
+↓
+
+No
+
+↓
+
+## Create Package
+
+## 16. ETL Architecture
+
+The Logistics application periodically synchronizes package status updates to the Collection application.
+
+Steps
+
+1. Read updated packages
+2. Build payload
+3. Sign request
+4. Push webhook
+5. Receive acknowledgement
+6. Mark synchronization successful
+
+---
+
+## 17. Reliability & Retry Strategy
+
+Webhook delivery failures will be retried using logarithmic backoff.
+
+Retry schedule
+
+10 seconds
+
+20 seconds
+
+40 seconds
+
+90 seconds
+
+120 seconds
+
+Maximum retries: 5
+
+After exceeding the retry limit, the customer will be marked unhealthy and notified.
+
+---
+
+## 18. Message Queue
+
+Webhook requests will be processed asynchronously.
+
+Current
+
+API
+
+↓
+
+Database
+
+Future
+
+API
+
+↓
+
+BullMQ Queue
+
+↓
+
+Worker
+
+↓
+
+Database
+
+---
+
+## 19. Support System
+
+A dedicated support application will have read-only access to logistics data.
+
+Support users can
+
+- View raw status history
+- View ETL payloads
+- Inspect retry history
+- View package timeline
+
+Support users cannot modify logistics data.
+
+---
+
+## 20. Future Cloud Architecture
+
+Current
+
+Docker
+PostgreSQL
+Node.js
+
+Future
+
+Amazon ECS
+Amazon RDS
+Amazon SQS
+Amazon ElastiCache
+Amazon CloudWatch
+AWS Secrets Manager
 
 ---

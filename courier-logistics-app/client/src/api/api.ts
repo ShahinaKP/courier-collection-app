@@ -14,10 +14,12 @@ export const updatePackageStatus = (
 
 export const fetchBags = () => fetch(`${BASE_URL}/bags`).then((r) => r.json());
 
-export const createBag = (data: { region_id: number; direction: string }) =>
+export const createBag = (data: { route_id: number }) =>
   fetch(`${BASE_URL}/bags`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+    },
     body: JSON.stringify(data),
   }).then((r) => r.json());
 
@@ -41,6 +43,23 @@ export const updateBagStatus = (
 export const fetchRegions = () =>
   fetch(`${BASE_URL}/regions`).then((r) => r.json());
 
+// Routes
+export const fetchRoutes = () =>
+  fetch(`${BASE_URL}/routes`).then((r) => r.json());
+
+export const createRoute = (data: {
+  source_region_id: number;
+  destination_region_id: number;
+  direction: string;
+}) =>
+  fetch(`${BASE_URL}/routes`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(data),
+  }).then((r) => r.json());
+
 // Trucks
 export const fetchTrucks = () =>
   fetch(`${BASE_URL}/trucks`).then((r) => r.json());
@@ -57,12 +76,14 @@ export const fetchSchedules = () =>
 
 export const createSchedule = (data: {
   truck_id: number;
-  region_id: number;
+  route_id: number;
   scheduled_departure: string;
 }) =>
   fetch(`${BASE_URL}/trucks/schedules`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+    },
     body: JSON.stringify(data),
   }).then((r) => r.json());
 

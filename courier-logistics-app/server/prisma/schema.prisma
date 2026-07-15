@@ -12,13 +12,12 @@ model Region {
   id                   Int             @id @default(autoincrement())
   region_code          String          @unique @db.VarChar(10)
   region_name          String          @db.VarChar(100)
-  created_at           DateTime?       @default(now()) @db.Timestamp(6)
-  bags                 Bag[]
-  truck_schedules      TruckSchedule[]
+  created_at           DateTime       @default(now()) @db.Timestamp(6)
   pincodes             Pincode[]
-  destination_packages Package[]       @relation("destination")
-  current_packages     Package[]       @relation("current")
-
+  destination_packages Package[] @relation("DestinationRegion")
+  current_packages     Package[] @relation("CurrentRegion")
+  sourceRoutes         Route[] @relation("SourceRegion")
+  destinationRoutes    Route[] @relation("DestinationRegion")
   @@map("regions")
 }
 
@@ -30,6 +29,7 @@ model Pincode {
   region    Region @relation(fields: [region_id], references: [id])
 
   @@map("pincodes")
+  @@index([region_id])
 }
 
 model Package {
@@ -44,50 +44,58 @@ model Package {
   destination_region_id Int?
   current_region_id     Int?
   weight                Decimal        @db.Decimal(10, 2)
-  status                package_status @default(to_be_picked_up)
+  status                PackageStatus @default(to_be_picked_up)
   current_location      String?
   delay_reason          String?
-  created_at            DateTime?      @default(now()) @db.Timestamp(6)
-  updated_at            DateTime?      @default(now()) @db.Timestamp(6)
+  created_at            DateTime      @default(now()) @db.Timestamp(6)
+  updated_at DateTime @updatedAt @db.Timestamp(6)
   package_bags          PackageBag[]
-  destination_region    Region?        @relation("destination", fields: [destination_region_id], references: [id])
-  current_region        Region?        @relation("current", fields: [current_region_id], references: [id])
+  destination_region    Region?        @relation("DestinationRegion", fields: [destination_region_id], references: [id])
+  current_region        Region?        @relation("CurrentRegion", fields: [current_region_id], references: [id])
 
   @@map("packages")
+  @@index([destination_region_id])
+  @@index([current_region_id])
+  @@index([status])
 }
 
 model Bag {
   id           Int          @id @default(autoincrement())
   bag_code     String       @unique @db.VarChar(20)
-  region_id    Int?
-  direction    String       @db.VarChar(20)
-  status       String       @default("open") @db.VarChar(20)
-  created_at   DateTime?    @default(now()) @db.Timestamp(6)
-  updated_at   DateTime?    @default(now()) @db.Timestamp(6)
-  region       Region?      @relation(fields: [region_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  route_id     Int
+  route Route @relation(fields: [route_id], references: [id])
+  status       BagStatus @default(open)
+  created_at   DateTime    @default(now()) @db.Timestamp(6)
+  updated_at DateTime @updatedAt @db.Timestamp(6)
   package_bags PackageBag[]
   truck_bags   TruckBag[]
 
   @@map("bags")
+  @@index([route_id])
+  @@index([status])
 }
 
 model PackageBag {
   id         Int       @id @default(autoincrement())
-  package_id Int?
-  bag_id     Int?
+  package_id Int
+  bag_id     Int
   added_at   DateTime? @default(now()) @db.Timestamp(6)
-  bag        Bag?      @relation(fields: [bag_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  package    Package?  @relation(fields: [package_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  bag        Bag      @relation(fields: [bag_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  package    Package  @relation(fields: [package_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@map("package_bags")
+  @@index([bag_id])
+  @@index([package_id])
+  @@unique([package_id, bag_id])
 }
 
 model Truck {
   id              Int             @id @default(autoincrement())
   truck_code      String          @unique @db.VarChar(20)
   capacity        Int             @default(10)
-  status          String          @default("available") @db.VarChar(20)
-  created_at      DateTime?       @default(now()) @db.Timestamp(6)
+  status          TruckStatus @default(available)
+  created_at      DateTime       @default(now()) @db.Timestamp(6)
+  updated_at DateTime @updatedAt @db.Timestamp(6)
   truck_schedules TruckSchedule[]
 
   @@map("trucks")
@@ -95,42 +103,73 @@ model Truck {
 
 model TruckSchedule {
   id                  Int        @id @default(autoincrement())
-  truck_id            Int?
-  region_id           Int?
+  truck_id            Int
+  route_id            Int
+  route               Route @relation(fields: [route_id], references: [id])
   scheduled_departure DateTime   @db.Timestamp(6)
   actual_departure    DateTime?  @db.Timestamp(6)
-  status              String     @default("scheduled") @db.VarChar(20)
+  status              TruckScheduleStatus @default(scheduled)
   delay_reason        String?
-  created_at          DateTime?  @default(now()) @db.Timestamp(6)
+  created_at          DateTime  @default(now()) @db.Timestamp(6)
+  updated_at DateTime @updatedAt @db.Timestamp(6)
   truck_bags          TruckBag[]
-  region              Region?    @relation(fields: [region_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  truck               Truck?     @relation(fields: [truck_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  truck               Truck     @relation(fields: [truck_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@map("truck_schedules")
+  @@index([route_id])
+  @@index([truck_id])
+  @@index([scheduled_departure])
+  @@index([status])
+}
+
+model Route {
+  id                      Int      @id @default(autoincrement())
+  route_code String @unique @db.VarChar(30)
+  source_region_id        Int
+  destination_region_id   Int
+  source_region           Region   @relation("SourceRegion", fields: [source_region_id], references: [id])
+  destination_region      Region   @relation("DestinationRegion", fields: [destination_region_id], references: [id])
+
+  bags                    Bag[]
+  truck_schedules         TruckSchedule[]
+  status                  RouteStatus @default(active)
+  created_at              DateTime @default(now()) @db.Timestamp(6)
+  updated_at DateTime @updatedAt @db.Timestamp(6)
+
+  @@map("routes")
+  @@index([source_region_id])
+  @@index([destination_region_id])
+  @@index([status])
+  @@unique([source_region_id, destination_region_id])
 }
 
 model TruckBag {
   id                Int            @id @default(autoincrement())
-  truck_schedule_id Int?
-  bag_id            Int?
+  truck_schedule_id Int
+  bag_id            Int
   loaded_at         DateTime?      @default(now()) @db.Timestamp(6)
-  bag               Bag?           @relation(fields: [bag_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  truck_schedule    TruckSchedule? @relation(fields: [truck_schedule_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  bag               Bag           @relation(fields: [bag_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  truck_schedule    TruckSchedule @relation(fields: [truck_schedule_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@map("truck_bags")
+  @@index([truck_schedule_id])
+  @@index([bag_id])
+  @@unique([truck_schedule_id, bag_id])
 }
 
 model RawUpdate {
   id           Int       @id @default(autoincrement())
   payload      Json
-  processed    Boolean?  @default(false)
+  processed    Boolean  @default(false)
   received_at  DateTime? @default(now()) @db.Timestamp(6)
   processed_at DateTime? @db.Timestamp(6)
 
   @@map("raw_updates")
+  @@index([processed])
+  @@index([received_at])
 }
 
-enum package_status {
+enum PackageStatus {
   to_be_picked_up
   picked_up
   added_to_bag
@@ -138,4 +177,37 @@ enum package_status {
   arrived
   scheduled_for_delivery
   out_for_delivery
+}
+
+enum BagStatus {
+  open
+  sealed
+  loaded
+  delivered
+}
+
+enum TruckStatus {
+  available
+  in_transit
+  maintenance
+}
+
+enum TruckScheduleStatus {
+  scheduled
+  departed
+  delayed
+  arrived
+}
+
+enum RouteStatus {
+  active
+  inactive
+}
+
+enum Direction {
+  north
+  south
+  east
+  west
+  central
 }

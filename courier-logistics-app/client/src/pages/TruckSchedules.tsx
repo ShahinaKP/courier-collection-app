@@ -3,7 +3,7 @@ import {
   fetchTrucks,
   fetchSchedules,
   fetchBags,
-  fetchRegions,
+  fetchRoutes,
   createTruck,
   createSchedule,
   updateSchedule,
@@ -49,15 +49,13 @@ const TruckSchedules = () => {
   const [trucks, setTrucks] = useState<Truck[]>([]);
   const [schedules, setSchedules] = useState<TruckSchedule[]>([]);
   const [sealedBags, setSealedBags] = useState<Bag[]>([]);
-  const [regions, setRegions] = useState<
-    { id: number; region_code: string; region_name: string }[]
-  >([]);
+  const [routes, setRoutes] = useState<any[]>([]);
   const [expandedSchedule, setExpandedSchedule] = useState<number | null>(null);
 
   const [truckCode, setTruckCode] = useState("");
   const [truckCapacity, setTruckCapacity] = useState("10");
   const [selectedTruck, setSelectedTruck] = useState("");
-  const [scheduleRegion, setScheduleRegion] = useState("");
+  const [selectedRoute, setSelectedRoute] = useState("");
   const [departure, setDeparture] = useState("");
   const [loadScheduleId, setLoadScheduleId] = useState("");
   const [loadBagId, setLoadBagId] = useState("");
@@ -93,7 +91,7 @@ const TruckSchedules = () => {
     fetchBags().then((bags: Bag[]) =>
       setSealedBags(bags.filter((b) => b.status === "sealed")),
     );
-    fetchRegions().then(setRegions);
+    fetchRoutes().then(setRoutes);
   };
 
   useEffect(() => {
@@ -116,14 +114,14 @@ const TruckSchedules = () => {
   };
 
   const handleCreateSchedule = async () => {
-    if (!selectedTruck || !scheduleRegion || !departure) return;
+    if (!selectedTruck || !selectedRoute || !departure) return;
     await createSchedule({
       truck_id: parseInt(selectedTruck),
-      region_id: parseInt(scheduleRegion),
+      route_id: parseInt(selectedRoute),
       scheduled_departure: departure,
     });
     setSelectedTruck("");
-    setScheduleRegion("");
+    setSelectedRoute("");
     setDeparture("");
     load();
   };
@@ -311,15 +309,18 @@ const TruckSchedules = () => {
               </Select>
             </div>
             <div className="space-y-2">
-              <Label>Region</Label>
-              <Select value={scheduleRegion} onValueChange={setScheduleRegion}>
+              <Label>Route</Label>
+
+              <Select value={selectedRoute} onValueChange={setSelectedRoute}>
                 <SelectTrigger>
-                  <SelectValue placeholder="— select region —" />
+                  <SelectValue placeholder="Select Route" />
                 </SelectTrigger>
+
                 <SelectContent>
-                  {regions.map((r) => (
-                    <SelectItem key={r.id} value={String(r.id)}>
-                      {r.region_code} – {r.region_name}
+                  {routes.map((route) => (
+                    <SelectItem key={route.id} value={String(route.id)}>
+                      {route.route_code} • {route.source_region.region_code} →{" "}
+                      {route.destination_region.region_code}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -336,7 +337,7 @@ const TruckSchedules = () => {
             <Button
               className="w-full"
               onClick={handleCreateSchedule}
-              disabled={!selectedTruck || !scheduleRegion || !departure}
+              disabled={!selectedTruck || !selectedRoute || !departure}
             >
               Create Schedule
             </Button>
@@ -362,8 +363,11 @@ const TruckSchedules = () => {
                     .filter((s) => s.status === "scheduled")
                     .map((s) => (
                       <SelectItem key={s.id} value={String(s.id)}>
-                        {(s as any).truck?.truck_code} →{" "}
-                        {(s as any).region?.region_code} @{" "}
+                        {(s as any).truck?.truck_code}
+                        {" • "}
+                        {(s as any).route?.source_region.region_code}
+                        {" → "}
+                        {(s as any).route?.destination_region.region_code}
                         {new Date(s.scheduled_departure).toLocaleString()}
                       </SelectItem>
                     ))}
@@ -379,7 +383,9 @@ const TruckSchedules = () => {
                 <SelectContent>
                   {sealedBags.map((b) => (
                     <SelectItem key={b.id} value={String(b.id)}>
-                      {b.bag_code} ({b.direction}, {b.package_count} pkgs)
+                      {b.bag_code}•{(b as any).route.route_code}•
+                      {(b as any).route.source_region.region_code}→
+                      {(b as any).route.destination_region.region_code}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -432,8 +438,10 @@ const TruckSchedules = () => {
                     <span className="w-24 font-mono text-sm font-semibold">
                       {(s as any).truck?.truck_code ?? `SCH-${s.id}`}
                     </span>
-                    <Badge variant="secondary" className="w-20 justify-center">
-                      {(s as any).region?.region_code ?? "—"}
+                    <Badge variant="secondary">
+                      {(s as any).route?.source_region.region_code}
+                      {" → "}
+                      {(s as any).route?.destination_region.region_code}
                     </Badge>
                     <span className="flex-1 text-sm text-muted-foreground">
                       {new Date(s.scheduled_departure).toLocaleString()}
