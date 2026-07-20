@@ -1,4 +1,4 @@
-import { PrismaClient, Direction, RouteStatus } from "../../generated/prisma";
+import { PrismaClient, RouteStatus } from "../../generated/prisma";
 
 const prisma = new PrismaClient();
 
@@ -8,6 +8,90 @@ const REGIONS = [
   { region_code: "RG-E", region_name: "East Region" },
   { region_code: "RG-W", region_name: "West Region" },
   { region_code: "RG-C", region_name: "Central Region" },
+];
+
+const HUBS = [
+  // North
+  {
+    hub_code: "DEL-HUB",
+    hub_name: "Delhi Hub",
+    city: "Delhi",
+    region_code: "RG-N",
+  },
+  {
+    hub_code: "NOI-HUB",
+    hub_name: "Noida Hub",
+    city: "Noida",
+    region_code: "RG-N",
+  },
+  {
+    hub_code: "CHD-HUB",
+    hub_name: "Chandigarh Hub",
+    city: "Chandigarh",
+    region_code: "RG-N",
+  },
+
+  // South
+  {
+    hub_code: "BLR-HUB",
+    hub_name: "Bangalore Hub",
+    city: "Bangalore",
+    region_code: "RG-S",
+  },
+  {
+    hub_code: "CHN-HUB",
+    hub_name: "Chennai Hub",
+    city: "Chennai",
+    region_code: "RG-S",
+  },
+  {
+    hub_code: "KOC-HUB",
+    hub_name: "Kochi Hub",
+    city: "Kochi",
+    region_code: "RG-S",
+  },
+
+  // East
+  {
+    hub_code: "KOL-HUB",
+    hub_name: "Kolkata Hub",
+    city: "Kolkata",
+    region_code: "RG-E",
+  },
+  {
+    hub_code: "PAT-HUB",
+    hub_name: "Patna Hub",
+    city: "Patna",
+    region_code: "RG-E",
+  },
+
+  // West
+  {
+    hub_code: "MUM-HUB",
+    hub_name: "Mumbai Hub",
+    city: "Mumbai",
+    region_code: "RG-W",
+  },
+  {
+    hub_code: "PUN-HUB",
+    hub_name: "Pune Hub",
+    city: "Pune",
+    region_code: "RG-W",
+  },
+
+  // Central
+  {
+    hub_code: "NAG-HUB",
+    hub_name: "Nagpur Hub",
+    city: "Nagpur",
+    region_code: "RG-C",
+  },
+  {
+    hub_code: "BHO-HUB",
+    hub_name: "Bhopal Hub",
+    city: "Bhopal",
+    region_code: "RG-C",
+  },
 ];
 
 const PINCODES = [
@@ -58,49 +142,41 @@ const ROUTES = [
     route_code: "RTE-001",
     source_region_code: "RG-N",
     destination_region_code: "RG-C",
-    direction: Direction.south,
   },
   {
     route_code: "RTE-002",
     source_region_code: "RG-C",
     destination_region_code: "RG-S",
-    direction: Direction.south,
   },
   {
     route_code: "RTE-003",
     source_region_code: "RG-S",
     destination_region_code: "RG-C",
-    direction: Direction.north,
   },
   {
     route_code: "RTE-004",
     source_region_code: "RG-C",
     destination_region_code: "RG-N",
-    direction: Direction.north,
   },
   {
     route_code: "RTE-005",
     source_region_code: "RG-W",
     destination_region_code: "RG-C",
-    direction: Direction.east,
   },
   {
     route_code: "RTE-006",
     source_region_code: "RG-C",
     destination_region_code: "RG-W",
-    direction: Direction.west,
   },
   {
     route_code: "RTE-007",
     source_region_code: "RG-E",
     destination_region_code: "RG-C",
-    direction: Direction.west,
   },
   {
     route_code: "RTE-008",
     source_region_code: "RG-C",
     destination_region_code: "RG-E",
-    direction: Direction.east,
   },
 ];
 
@@ -112,6 +188,29 @@ async function main() {
       where: { region_code: r.region_code },
       update: {},
       create: r,
+    });
+  }
+
+  for (const hub of HUBS) {
+    const region = await prisma.region.findUnique({
+      where: {
+        region_code: hub.region_code,
+      },
+    });
+
+    if (!region) continue;
+
+    await prisma.hub.upsert({
+      where: {
+        hub_code: hub.hub_code,
+      },
+      update: {},
+      create: {
+        hub_code: hub.hub_code,
+        hub_name: hub.hub_name,
+        city: hub.city,
+        region_id: region.id,
+      },
     });
   }
 
@@ -147,7 +246,6 @@ async function main() {
         route_code: route.route_code,
         source_region_id: source.id,
         destination_region_id: destination.id,
-        direction: route.direction,
         status: RouteStatus.active,
       },
     });
@@ -167,8 +265,13 @@ async function main() {
 
   console.log("Seed completed.");
   console.log(
-    `  Regions: ${REGIONS.length}, Pincodes: ${PINCODES.length},
-    Routes: ${ROUTES.length}, Trucks: ${trucks.length}`,
+    `
+Regions : ${REGIONS.length}
+Hubs    : ${HUBS.length}
+Pincodes: ${PINCODES.length}
+Routes  : ${ROUTES.length}
+Trucks  : ${trucks.length}
+`,
   );
 }
 

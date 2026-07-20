@@ -9,15 +9,17 @@ datasource db {
 }
 
 model Region {
-  id                   Int             @id @default(autoincrement())
-  region_code          String          @unique @db.VarChar(10)
-  region_name          String          @db.VarChar(100)
-  created_at           DateTime       @default(now()) @db.Timestamp(6)
-  pincodes             Pincode[]
+  id           Int      @id @default(autoincrement())
+  region_code  String   @unique
+  region_name  String   @db.VarChar(100)
+  created_at   DateTime @default(now()) @db.Timestamp(6)
+
+  pincodes     Pincode[]
+  hubs         Hub[] 
   destination_packages Package[] @relation("DestinationRegion")
   current_packages     Package[] @relation("CurrentRegion")
-  sourceRoutes         Route[] @relation("SourceRegion")
-  destinationRoutes    Route[] @relation("DestinationRegion")
+  source_routes      Route[] @relation("SourceRegion")
+  destination_routes Route[] @relation("DestinationRegion")
   @@map("regions")
 }
 
@@ -30,6 +32,21 @@ model Pincode {
 
   @@map("pincodes")
   @@index([region_id])
+}
+
+model Hub {
+  id         Int      @id @default(autoincrement())
+
+  hub_code   String   @unique
+  hub_name   String
+  city       String
+
+  region_id  Int
+  region     Region   @relation(fields: [region_id], references: [id])
+
+  created_at   DateTime @default(now()) @db.Timestamp(6)
+  updated_at   DateTime @updatedAt @db.Timestamp(6)
+  @@map("hubs")
 }
 
 model Package {
@@ -143,6 +160,8 @@ model Route {
   @@unique([source_region_id, destination_region_id])
 }
 
+
+
 model TruckBag {
   id                Int            @id @default(autoincrement())
   truck_schedule_id Int
@@ -204,10 +223,4 @@ enum RouteStatus {
   inactive
 }
 
-enum Direction {
-  north
-  south
-  east
-  west
-  central
-}
+

@@ -13,6 +13,7 @@ import prisma from "./db/prisma";
 import { captureRawBody } from "./middleware/verifySignature";
 import { signedPost } from "./lib/signedPost";
 import routeRoutes from "./routes/routeRoutes";
+import hubRoutes from "./routes/hubRoutes";
 
 const app = express();
 const PORT = process.env.PORT || 5001;
@@ -25,6 +26,8 @@ app.use("/api/bags", bagRoutes);
 app.use("/api/trucks", truckRoutes);
 app.use("/api/regions", regionRoutes);
 app.use("/api/routes", routeRoutes);
+app.use("/api/hubs", hubRoutes);
+
 app.get("/health", (req, res) => {
   res.json({ status: "ok", message: "Courier Logistics API is running" });
 });
